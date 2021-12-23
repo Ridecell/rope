@@ -486,10 +486,9 @@ class MoveModule(object):
     ):
         if resources is None:
             resources = self.project.get_python_files()
-        if dest is None or not dest.is_folder():
+        if dest is None:
             raise exceptions.RefactoringError(
-                "Move destination for modules should be packages."
-            )
+                'Move destination for modules should be other modules.')
         return self._calculate_changes(dest, resources, task_handle)
 
     def _calculate_changes(self, dest, resources, task_handle):
@@ -511,7 +510,9 @@ class MoveModule(object):
     def _new_modname(self, dest):
         destname = libutils.modname(dest)
         if destname:
-            return destname + "." + self.old_name
+            if dest.is_folder():
+                return destname + '.' + self.old_name
+            return destname
         return self.old_name
 
     def _new_import(self, dest):
@@ -615,8 +616,19 @@ class MoveModule(object):
             imports = import_stmt.import_info.names_and_aliases
             new_imports = []
             for name, alias in imports:
+                # The moving module was wholly imported (from my_folder import module)
+                if name == self.old_name and name == dest.name[:-3] and not dest.is_folder():
+                    try:
+                        changed = True
+                        new_import = importutils.FromImport(
+                            libutils.modname(dest.parent), 0,
+                            [(self.old_name, alias)])
+                        module_imports.add_import(new_import)
+                    except Exception as ex:
+                        raise exceptions.RefactoringError(
+                            'Error attempting to refactor an module level import. ex: from module.module import module')
                 # The moving module was imported.
-                if name == self.old_name:
+                elif name == self.old_name:
                     changed = True
                     new_import = importutils.FromImport(
                         libutils.modname(dest), 0, [(self.old_name, alias)]

@@ -158,8 +158,9 @@ class _Project(object):
             folder = folder.parent
         if modname == "":
             return folder
-        else:
-            return _find_module_in_folder(folder, modname)
+        if not folder:
+            return _find_module_in_folder(self.root, modname)
+        return _find_module_in_folder(folder, modname)
 
     def is_ignored(self, resource):
         return False
